@@ -1,0 +1,104 @@
+digraph {
+    ratio=1.2
+
+    graph [fontname = "helvetica"]
+    node [fontname = "helvetica", shape=record]
+    edge [fontname = "helvetica"]
+
+    subgraph cluster_handshake {
+        label=Handshake
+        color=gray
+
+        /* client */
+        ClientHello -> ServerHello [taillabel=ServerHelloMsg, color=red]
+        ClientHello -> ResumeSession [taillabel=ServerHelloMsg, color=red]
+        ClientHello -> ClientHello [label=HelloRequestMsg, color=red] # Ignore
+
+        /* server */
+        ServerHello -> ServerHello [label=HelloRequestMsg, color=red] # Ignore
+
+        ResumeSession -> ResumeSession [label=HelloRequestMsg, color=red] # Ignore
+        ResumeSession -> ClientChangeCipherSpec [taillabel=ChangeCipherSpecMsg, color=blue] # Session ID ok
+
+        ServerHello -> ServerCert_ServerCertificate [taillabel=CertificateMsg, color=red]
+        subgraph cluster_server_cert {
+            label="Server has Certificate"
+            ServerCert_ServerCertificate -> ClientCert_CertificateRequest [taillabel=CertificateRequestMsg, color=red]
+            ServerCert_ServerCertificate -> ServerCertCannotEnc_ServerKeyExchange [taillabel=ServerKeyExchangeMsg, color=red]
+            ServerCert_ServerCertificate -> ServerCert_ServerCertificate [label=HelloRequestMsg, color=red] # Ignore
+
+            ServerCertCannotEnc_ServerKeyExchange -> ClientCert_CertificateRequest [taillabel=CertificateRequestMsg, color=red]
+            ServerCertCannotEnc_ServerKeyExchange -> ServerCert_ServerHelloDone [taillabel=ServerHelloDoneMsg, color=red]
+            ServerCertCannotEnc_ServerKeyExchange -> ServerCertCannotEnc_ServerKeyExchange [label=HelloRequestMsg, color=red] # Ignore
+
+            ServerCert_ServerHelloDone -> ServerCert_ServerHelloDone [label=HelloRequestMsg, color=red] # Ignore
+
+            subgraph cluster_client_cert {
+                label="Client Certificate Requested"
+
+                ClientCert_CertificateRequest -> ClientCert_ServerHelloDone [taillabel=ServerHelloDoneMsg, color=red]
+                ClientCert_CertificateRequest -> ClientCert_CertificateRequest [label=HelloRequestMsg, color=red] # Ignore
+
+                /* client */
+                ClientCert_ServerHelloDone -> ClientCert_ClientCertificate [taillabel=CertificateMsg, color=blue]
+                ClientCert_ServerHelloDone -> ClientCert_ServerHelloDone [label=HelloRequestMsg, color=red] # Ignore
+                
+                ClientCert_ClientCertificate -> ClientCert_ClientKeyExchange [taillabel=ClientKeyExchangeMsg, color=blue]
+
+                ClientCert_ClientKeyExchange -> ClientCertCanSign_CertificateVerify [taillabel=CertificateVerifyMsg, color=blue]
+            }
+
+            /* NO CLIENT CERTIFICATE */
+            /* client */
+            ServerCert_ServerHelloDone -> ServerCert_ClientKeyExchange [taillabel=ClientKeyExchangeMsg, color=blue]
+        }
+
+        ServerHello -> NoCert_ServerKeyExchange [taillabel=ServerKeyExchangeMsg, color=red]
+        subgraph cluster_no_server_cert {
+            label="Server has no Certificate"
+
+            NoCert_ServerKeyExchange -> NoCert_ServerHelloDone [taillabel=ServerHelloDoneMsg, color=red]
+            NoCert_ServerKeyExchange -> NoCert_ServerKeyExchange [label=HelloRequestMsg, color=red] # Ignore
+
+            NoCert_ServerHelloDone -> NoCert_ServerHelloDone [label=HelloRequestMsg, color=red] # Ignore
+
+            /* client */
+            NoCert_ServerHelloDone -> NoCert_ClientKeyExchange [taillabel=ClientKeyExchangeMsg, color=blue]
+        }
+
+        NoCert_ClientKeyExchange -> ClientChangeCipherSpec [taillabel=ChangeCipherSpecMsg, color=blue]
+        ServerCert_ClientKeyExchange -> ClientChangeCipherSpec [taillabel=ChangeCipherSpecMsg, color=blue]
+        ClientCert_ClientKeyExchange -> ClientChangeCipherSpec [taillabel=ChangeCipherSpecMsg, color=blue]
+        ClientCertCanSign_CertificateVerify -> ClientChangeCipherSpec [taillabel=ChangeCipherSpecMsg, color=blue]
+
+        ClientChangeCipherSpec -> ClientFinish [taillabel=ClientFinishMsg, color=blue]
+
+        /* Server */
+        ClientFinish -> ServerChangeCipherSpec [taillabel=ChangeCipherSpecMsg, color=red]
+        ClientFinish -> ClientFinish [label=HelloRequestMsg, color=red] # Ignore
+    }
+
+    Start[shape=ellipse]
+    Start -> ClientHello [taillabel=ClientHelloMsg, color=blue]
+
+    ServerChangeCipherSpec -> Established [taillabel=FinishMsg, color=red]
+    ServerChangeCipherSpec -> ServerChangeCipherSpec [label=HelloRequest, color=red]
+
+    Established -> ClientHello [taillabel=ClientHelloMsg, color=blue]
+    Established -> HelloRequest [taillabel=HelloRequestMsg, color=red]
+
+    HelloRequest -> Established [taillabel=NoRegotiationWarning, color=blue, constraint=false]
+    HelloRequest -> ClientHello [taillabel=ClientHelloMsg, color=blue]
+
+    subgraph cluster_close {
+        label=Closing
+
+        ClientClosed -> ClientClosedAcknowledged  [taillabel=CloseAlertError, color=red]
+
+        ServerClosed -> ServerClosedAcknowledged  [taillabel=CloseAlertError, color=blue]
+    }
+
+    Established -> ServerClosed [taillabel=CloseAlertError, color=red]
+    Established -> ClientClosed [taillabel=CloseAlertError, color=blue]
+}
+
