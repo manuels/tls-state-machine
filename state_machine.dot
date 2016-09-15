@@ -1,3 +1,5 @@
+# generate SVG using 'dot -Tsvg state_machine.dot -o state_machine.svg'
+
 digraph {
     ratio=1.2
 
